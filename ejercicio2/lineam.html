@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Línea entre Dedos</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
+    <script src="https://unpkg.com/ml5@latest/dist/ml5.min.js"></script>
+  </head>
+  <body>
+    <h1>
+      02. Trazado de línea. Esta aplicación utilizará los datos provenientes de
+      la cámara Web, se deberá trazar una línea recta entre los dedos índices.
+    </h1>
+
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: Arial;
+      }
+
+      body {
+        text-align: center;
+        padding-top: 20px;
+      }
+
+      h1 {
+        font-size: 24px;
+        margin-bottom: 20px;
+      }
+
+      canvas {
+        display: block;
+        margin: auto;
+      }
+    </style>
+
+    <script>
+      let handPose;
+      let video;
+      let hands = [];
+
+      function preload() {
+        handPose = ml5.handPose();
+      }
+
+      function setup() {
+        createCanvas(640, 480);
+        video = createCapture(VIDEO);
+        video.size(640, 480);
+        video.hide();
+        handPose.detectStart(video, gotHands);
+      }
+
+      function gotHands(results) {
+        hands = results;
+      }
+
+      function draw() {
+        // Mostrar video
+        image(video, 0, 0, width, height);
+
+        let puntos = [];
+
+        for (let hand of hands) {
+          if (hand.keypoints && hand.keypoints[8]) {
+            let dedo = hand.keypoints[8];
+            puntos.push({ x: dedo.x, y: dedo.y });
+
+            fill(255);
+            circle(dedo.x, dedo.y, 12);
+          }
+        }
+
+        if (puntos.length >= 2) {
+          stroke(0, 255, 255);
+          strokeWeight(6);
+          line(puntos[0].x, puntos[0].y, puntos[1].x, puntos[1].y);
+        }
+      }
+    </script>
+  </body>
+</html>
