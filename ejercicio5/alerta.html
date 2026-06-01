@@ -1,11 +1,113 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ejercicio 5 - Alerta de Detección</title>
+    <title>Detector de Personas</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+    <script src="https://unpkg.com/ml5@0.12.2/dist/ml5.min.js"></script>
 </head>
+
 <body>
-    <p>Aun no hay avance </p>
+    <div id="debug" style="font-family:monospace;font-size:12px;color:red;padding:4px"></div>
+    <script>
+        let detector, video;
+        let detections = [];
+        let startTime = null;
+        let alerted = false;
+
+        function setup() {
+            createCanvas(640, 480);
+            video = createCapture(VIDEO, () => {
+                detector = ml5.objectDetector("cocossd", () => {
+                    console.log("Modelo listo");
+                    detector.detect(video, gotDetections);
+                });
+            });
+            video.size(width, height);
+            video.hide();
+        }
+
+        function gotDetections(err, results) {
+            if (err) { console.error(err); return; }
+            detections = results || [];
+            // Mostrar estructura raw en debug la primera vez
+            if (detections.length > 0) {
+                document.getElementById("debug").textContent = JSON.stringify(detections[0]);
+            }
+            detector.detect(video, gotDetections);
+        }
+
+        function playAlarm() {
+            let ac = new AudioContext();
+            [440, 880, 440, 880].forEach((f, i) => {
+                let o = ac.createOscillator();
+                o.connect(ac.destination);
+                o.frequency.value = f;
+                o.start(i * 0.25);
+                o.stop(i * 0.25 + 0.22);
+            });
+        }
+
+        function draw() {
+            image(video, 0, 0);
+
+            for (let d of detections) {
+                // ml5 0.12.2 usa d.x, d.y, d.width, d.height directamente
+                let x = d.x || (d.bbox && d.bbox[0]) || 0;
+                let y = d.y || (d.bbox && d.bbox[1]) || 0;
+                let w = d.width || (d.bbox && d.bbox[2]) || 0;
+                let h = d.height || (d.bbox && d.bbox[3]) || 0;
+                let label = d.label || d.class || "?";
+
+                stroke(0, 255, 0);
+                strokeWeight(4);
+                noFill();
+                rect(x, y, w, h);
+                noStroke();
+                fill(255);
+                textSize(20);
+                text(label + " " + nf(d.confidence || d.score || 0, 1, 2), x + 4, y - 6);
+            }
+
+            let hasPerson = detections.some(d => (d.label || d.class) === "person");
+
+            if (hasPerson) {
+                if (!startTime) startTime = millis();
+                let elapsed = (millis() - startTime) / 1000;
+                let pct = min(elapsed / 5, 1);
+
+                noStroke();
+                fill(50);
+                rect(10, height - 30, width - 20, 20);
+                fill(pct < 1 ? color(0, 220, 100) : color(255, 50, 50));
+                rect(10, height - 30, (width - 20) * pct, 20);
+                fill(255);
+                textSize(13);
+                textAlign(CENTER);
+                text(elapsed.toFixed(1) + " / 5 seg", width / 2, height - 14);
+                textAlign(LEFT);
+
+                if (elapsed >= 5 && !alerted) {
+                    alerted = true;
+                    playAlarm();
+                }
+                if (alerted) {
+                    fill(255, 0, 0, 180);
+                    noStroke();
+                    rect(0, 0, width, 40);
+                    fill(255);
+                    textSize(18);
+                    textAlign(CENTER);
+                    text("⚠ ALERTA: persona por más de 5 segundos", width / 2, 26);
+                    textAlign(LEFT);
+                }
+            } else {
+                startTime = null;
+                alerted = false;
+            }
+        }
+    </script>
 </body>
+
 </html>
