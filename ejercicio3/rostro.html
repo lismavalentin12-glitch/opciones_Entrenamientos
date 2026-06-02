@@ -1,11 +1,163 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ejercicio 3 - Detección del Rostro</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Detección de Partes del Rostro</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.min.js"></script>
+<script src="https://unpkg.com/ml5@0.12.2/dist/ml5.min.js"></script>
+
+<style>
+body{
+    text-align:center;
+    font-family:Arial, sans-serif;
+    background:#f0f0f0;
+}
+canvas{
+    border:2px solid black;
+    margin-top:10px;
+}
+.controls{
+    margin:10px;
+}
+</style>
 </head>
 <body>
-    <p>Aun no hay avance </p>
+
+<h2>Detección de Partes del Rostro</h2>
+
+<div class="controls">
+
+<select id="parte">
+    <option value="ojoIzq">Ojo Izquierdo</option>
+    <option value="ojoDer">Ojo Derecho</option>
+    <option value="ambosOjos">Ambos Ojos</option>
+    <option value="cejaIzq">Ceja Izquierda</option>
+    <option value="cejaDer">Ceja Derecha</option>
+    <option value="nariz">Nariz</option>
+    <option value="boca">Boca</option>
+    <option value="labios">Labios</option>
+    <option value="rostro">Rostro Completo</option>
+</select>
+
+<input type="color" id="color" value="#ff0000">
+
+</div>
+
+<script>
+
+let video;
+let facemesh;
+let predictions = [];
+
+function setup() {
+
+    createCanvas(640,480);
+
+    video = createCapture(VIDEO);
+    video.size(640,480);
+    video.hide();
+
+    facemesh = ml5.facemesh(video, modelReady);
+
+    facemesh.on("predict", results => {
+        predictions = results;
+    });
+}
+
+function modelReady(){
+    console.log("FaceMesh cargado");
+}
+
+function draw() {
+
+    image(video,0,0,width,height);
+
+    if(predictions.length > 0){
+
+        let face = predictions[0].annotations;
+
+        stroke(document.getElementById("color").value);
+        strokeWeight(3);
+        noFill();
+
+        let parte =
+        document.getElementById("parte").value;
+
+        if(parte=="ojoIzq"){
+            dibujar(face.leftEyeUpper0);
+            dibujar(face.leftEyeLower0);
+        }
+
+        if(parte=="ojoDer"){
+            dibujar(face.rightEyeUpper0);
+            dibujar(face.rightEyeLower0);
+        }
+
+        if(parte=="ambosOjos"){
+            dibujar(face.leftEyeUpper0);
+            dibujar(face.leftEyeLower0);
+            dibujar(face.rightEyeUpper0);
+            dibujar(face.rightEyeLower0);
+        }
+
+        if(parte=="cejaIzq"){
+            dibujar(face.leftEyebrowUpper);
+        }
+
+        if(parte=="cejaDer"){
+            dibujar(face.rightEyebrowUpper);
+        }
+
+        if(parte=="nariz"){
+            dibujar(face.noseTip);
+            dibujar(face.noseBottom);
+        }
+
+        if(parte=="boca"){
+            dibujar(face.lipsUpperOuter);
+            dibujar(face.lipsLowerOuter);
+        }
+
+        if(parte=="labios"){
+            dibujar(face.lipsUpperInner);
+            dibujar(face.lipsLowerInner);
+        }
+
+        if(parte=="rostro"){
+
+            dibujar(face.silhouette);
+
+            dibujar(face.leftEyeUpper0);
+            dibujar(face.leftEyeLower0);
+
+            dibujar(face.rightEyeUpper0);
+            dibujar(face.rightEyeLower0);
+
+            dibujar(face.leftEyebrowUpper);
+            dibujar(face.rightEyebrowUpper);
+
+            dibujar(face.noseTip);
+
+            dibujar(face.lipsUpperOuter);
+            dibujar(face.lipsLowerOuter);
+        }
+    }
+}
+
+function dibujar(puntos){
+
+    beginShape();
+
+    for(let i=0;i<puntos.length;i++){
+        vertex(puntos[i][0], puntos[i][1]);
+    }
+
+    endShape(CLOSE);
+}
+
+</script>
+
 </body>
 </html>
