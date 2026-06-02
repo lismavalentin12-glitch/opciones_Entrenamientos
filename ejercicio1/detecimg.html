@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ejercicio 1 - Detección de Imágenes</title>
+    <script src="https://cdn.jsdelivr.net/npm/p5@1.11.13/lib/p5.min.js"></script>
+    <script src="https://unpkg.com/ml5@1/dist/ml5.min.js"></script>
+</head>
+<body>
+
+    <h1>1. Detección de Imágenes de Animales</h1>
+    <select onchange="cambiarImagen(this.value)">
+        <option value="img/perro.jpg">Perro</option>
+        <option value="img/gato.jpg">Gato</option>
+        <option value="img/lobo.jpg">Lobo</option>
+        <option value="img/ganso.jpg">Ganso</option>
+        <option value="img/elefante_in.jpg">Elefante</option>
+        <option value="img/loro.jpg">Loro</option>
+    </select>
+    <br><br>
+
+    <div style="position:relative; display:inline-block;">
+        <img id="imagen" width="250">
+        <div id="duda"
+             style="
+                position:absolute;
+                top:50%;
+                left:50%;
+                transform:translate(-50%,-50%);
+                font-size:150px;
+                font-weight:bold;
+                color:red;
+                pointer-events:none;">
+        </div>
+    </div>
+
+    <h2 id="descripcion"></h2>
+    <h3 id="confianza"></h3>
+
+<script>
+
+let classifier; // Variable global para el clasificador de imágenes
+
+function preload() { //carga a
+    classifier = ml5.imageClassifier("MobileNet"); //modelo
+} 
+
+function setup() {
+    noCanvas(); 
+}
+
+function cambiarImagen(ruta){
+    if(ruta === "") ; //imagen
+    let imagen = document.getElementById("imagen");
+    imagen.src = ruta; //Mantiene
+    imagen.onload = function(){
+        classifier.classify(imagen, gotResult); //imagen
+    };
+}
+
+function gotResult(results){ // results es un arreglo de objetos con las predicciones del modelo
+    console.log(results);
+    let etiqueta = results[0].label;
+    let confianza = results[0].confidence * 100;
+    if(confianza >= 50){
+        document.getElementById("descripcion").innerHTML =
+            "Descripción: " + etiqueta;
+        document.getElementById("confianza").innerHTML =
+            "Confianza: " + confianza.toFixed(2) + "%";
+        document.getElementById("duda").innerHTML = "";
+
+    }
+    else{
+
+        document.getElementById("descripcion").innerHTML =
+            "No se puede determinar qué es";
+        document.getElementById("confianza").innerHTML =
+            "Confianza: " + confianza.toFixed(2) + "%";
+        document.getElementById("duda").innerHTML = "?";
+    }
+}
+
+</script>
+</body>
+</html>
