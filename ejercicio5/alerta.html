@@ -1,113 +1,203 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
-    <meta charset="UTF-8">
-    <title>Detector de Personas</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
-    <script src="https://unpkg.com/ml5@0.12.2/dist/ml5.min.js"></script>
+  <meta charset="UTF-8">
+  <title>Detector de Personas</title>
+
+  <!-- Estas dos líneas cargan herramientas que alguien más hizo -->
+  <!-- p5.js nos deja dibujar en pantalla fácilmente -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+  <!-- ml5.js nos da acceso a inteligencia artificial -->
+  <script src="https://unpkg.com/ml5@0.12.2/dist/ml5.min.js"></script>
 </head>
-
 <body>
-    <div id="debug" style="font-family:monospace;font-size:12px;color:red;padding:4px"></div>
-    <script>
-        let detector, video;
-        let detections = [];
-        let startTime = null;
-        let alerted = false;
+<script>
 
-        function setup() {
-            createCanvas(640, 480);
-            video = createCapture(VIDEO, () => {
-                detector = ml5.objectDetector("cocossd", () => {
-                    console.log("Modelo listo");
-                    detector.detect(video, gotDetections);
-                });
-            });
-            video.size(width, height);
-            video.hide();
-        }
+  // ── Aquí guardamos información que vamos a necesitar en todo el programa ──
 
-        function gotDetections(err, results) {
-            if (err) { console.error(err); return; }
-            detections = results || [];
-            // Mostrar estructura raw en debug la primera vez
-            if (detections.length > 0) {
-                document.getElementById("debug").textContent = JSON.stringify(detections[0]);
-            }
-            detector.detect(video, gotDetections);
-        }
+  let video;       // la imagen de la cámara
+  let detector;    // el programa de IA que detecta objetos
+  let detecciones = [];  // lista de cosas que encontró la IA
 
-        function playAlarm() {
-            let ac = new AudioContext();
-            [440, 880, 440, 880].forEach((f, i) => {
-                let o = ac.createOscillator();
-                o.connect(ac.destination);
-                o.frequency.value = f;
-                o.start(i * 0.25);
-                o.stop(i * 0.25 + 0.22);
-            });
-        }
+  let tiempoInicio = null;  // ¿cuándo apareció la persona?
+  let alertaActivada = false;  // ¿ya sonó la alarma?
 
-        function draw() {
-            image(video, 0, 0);
 
-            for (let d of detections) {
-                // ml5 0.12.2 usa d.x, d.y, d.width, d.height directamente
-                let x = d.x || (d.bbox && d.bbox[0]) || 0;
-                let y = d.y || (d.bbox && d.bbox[1]) || 0;
-                let w = d.width || (d.bbox && d.bbox[2]) || 0;
-                let h = d.height || (d.bbox && d.bbox[3]) || 0;
-                let label = d.label || d.class || "?";
+  // ── setup() se ejecuta UNA SOLA VEZ al abrir la página ──
 
-                stroke(0, 255, 0);
-                strokeWeight(4);
-                noFill();
-                rect(x, y, w, h);
-                noStroke();
-                fill(255);
-                textSize(20);
-                text(label + " " + nf(d.confidence || d.score || 0, 1, 2), x + 4, y - 6);
-            }
+  function setup() {
 
-            let hasPerson = detections.some(d => (d.label || d.class) === "person");
+    // Crear un lienzo (como una hoja de papel) de 640x480 píxeles
+    createCanvas(640, 480);
 
-            if (hasPerson) {
-                if (!startTime) startTime = millis();
-                let elapsed = (millis() - startTime) / 1000;
-                let pct = min(elapsed / 5, 1);
+    // Encender la cámara
+    video = createCapture(VIDEO, camaraLista);
 
-                noStroke();
-                fill(50);
-                rect(10, height - 30, width - 20, 20);
-                fill(pct < 1 ? color(0, 220, 100) : color(255, 50, 50));
-                rect(10, height - 30, (width - 20) * pct, 20);
-                fill(255);
-                textSize(13);
-                textAlign(CENTER);
-                text(elapsed.toFixed(1) + " / 5 seg", width / 2, height - 14);
-                textAlign(LEFT);
+    // Que el video no aparezca dos veces en la página
+    video.size(640, 480);
+    video.hide();
+  }
 
-                if (elapsed >= 5 && !alerted) {
-                    alerted = true;
-                    playAlarm();
-                }
-                if (alerted) {
-                    fill(255, 0, 0, 180);
-                    noStroke();
-                    rect(0, 0, width, 40);
-                    fill(255);
-                    textSize(18);
-                    textAlign(CENTER);
-                    text("⚠ ALERTA: persona por más de 5 segundos", width / 2, 26);
-                    textAlign(LEFT);
-                }
-            } else {
-                startTime = null;
-                alerted = false;
-            }
-        }
-    </script>
+
+  // Esta función se llama cuando la cámara ya está encendida
+  function camaraLista() {
+
+    // Cargar el modelo de IA (COCO-SSD puede reconocer 80 tipos de objetos)
+    detector = ml5.objectDetector("cocossd", modeloListo);
+  }
+
+
+  // Esta función se llama cuando el modelo de IA ya cargó
+  function modeloListo() {
+
+    // Empezar a analizar el video
+    detector.detect(video, recibirDetecciones);
+  }
+
+
+  // La IA llama a esta función cada vez que termina de analizar un fotograma
+  function recibirDetecciones(error, resultados) {
+
+    if (error) return; // si algo salió mal, ignorar
+
+    // Guardar lo que encontró
+    detecciones = resultados;
+
+    // Volver a analizar el siguiente fotograma (así se hace el ciclo)
+    detector.detect(video, recibirDetecciones);
+  }
+
+
+  // ── draw() se ejecuta 60 VECES POR SEGUNDO, sin parar ──
+
+  function draw() {
+
+    // Paso 1: mostrar la imagen de la cámara como fondo
+    image(video, 0, 0);
+
+    // Paso 2: dibujar una caja alrededor de cada objeto detectado
+    for (let i = 0; i < detecciones.length; i++) {
+
+      let d = detecciones[i];
+
+      // Caja verde
+      stroke(0, 255, 0);
+      strokeWeight(4);
+      noFill();
+      rect(d.x, d.y, d.width, d.height);
+
+      // Etiqueta con el nombre y qué tan seguro está (0 a 1)
+      noStroke();
+      fill(255);
+      textSize(20);
+      text(d.label + "  " + d.confidence.toFixed(2), d.x + 4, d.y - 6);
+    }
+
+    // Paso 3: revisar si alguna de las detecciones es una persona
+    let hayPersona = false;
+
+    for (let i = 0; i < detecciones.length; i++) {
+      if (detecciones[i].label === "person") {
+        hayPersona = true;
+      }
+    }
+
+    // Paso 4: si hay persona, contar el tiempo
+    if (hayPersona) {
+
+      // Si es la primera vez que aparece, anotar en qué momento es
+      if (tiempoInicio === null) {
+        tiempoInicio = millis(); // millis() da el tiempo en milisegundos
+      }
+
+      // Calcular cuántos segundos lleva en pantalla
+      let segundos = (millis() - tiempoInicio) / 1000;
+
+      // Mostrar una barra de progreso
+      mostrarBarra(segundos);
+
+      // Si ya lleva 5 segundos y no hemos avisado todavía → alarma
+      if (segundos >= 5 && alertaActivada === false) {
+        alertaActivada = true;
+        sonarAlarma();
+      }
+
+      // Si la alarma ya sonó, mostrar el cartel rojo
+      if (alertaActivada) {
+        mostrarCartelRojo();
+      }
+
+    } else {
+
+      // No hay persona: reiniciar el contador
+      tiempoInicio = null;
+      alertaActivada = false;
+    }
+  }
+
+
+  // ── Funciones de apoyo ───────────────────────────────────
+
+  // Dibuja la barra verde/roja que muestra el tiempo
+  function mostrarBarra(segundos) {
+
+    // Calcular qué porcentaje de 5 segundos llevamos (entre 0 y 1)
+    let porcentaje = segundos / 5;
+    if (porcentaje > 1) porcentaje = 1; // no pasar de 1
+
+    // Fondo gris de la barra
+    noStroke();
+    fill(50);
+    rect(10, height - 30, width - 20, 20);
+
+    // Relleno: verde si no llegó a 5 seg, rojo si ya llegó
+    if (porcentaje < 1) {
+      fill(0, 220, 100); // verde
+    } else {
+      fill(255, 50, 50); // rojo
+    }
+    rect(10, height - 30, (width - 20) * porcentaje, 20);
+
+    // Texto encima de la barra
+    fill(255);
+    textSize(13);
+    textAlign(CENTER);
+    text(segundos.toFixed(1) + " / 5 segundos", width / 2, height - 14);
+    textAlign(LEFT);
+  }
+
+
+  // Muestra un cartel rojo en la parte de arriba
+  function mostrarCartelRojo() {
+    fill(255, 0, 0, 180); // rojo semitransparente
+    noStroke();
+    rect(0, 0, width, 40);
+
+    fill(255);
+    textSize(18);
+    textAlign(CENTER);
+    text("ALERTA: persona en pantalla por mas de 5 segundos", width / 2, 26);
+    textAlign(LEFT);
+  }
+
+
+  // Hace sonar 4 pitidos usando el audio del navegador
+  function sonarAlarma() {
+
+    let audio = new AudioContext();
+
+    // Frecuencias de los 4 pitidos (en Hz, como notas musicales)
+    let frecuencias = [440, 880, 440, 880];
+
+    for (let i = 0; i < frecuencias.length; i++) {
+      let oscilador = audio.createOscillator(); // genera el sonido
+      oscilador.frequency.value = frecuencias[i];
+      oscilador.connect(audio.destination);     // conectar a los parlantes
+      oscilador.start(i * 0.25);                // empezar cada 0.25 seg
+      oscilador.stop(i * 0.25 + 0.22);          // durar 0.22 seg
+    }
+  }
+
+</script>
 </body>
-
 </html>
